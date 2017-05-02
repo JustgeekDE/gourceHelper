@@ -32,13 +32,17 @@ def getGourceLog(directory):
     pass
   return result
 
+def getGourceUsers(log):
+  allUsers = map(lambda x: x.split("|")[1], log)
+  return set(allUsers)
+
 parser = argparse.ArgumentParser(description='Create gource log from multiple rpos')
 parser.add_argument('-c', dest="minCommits", metavar='n', type=int, help='minimum ammount of git commits to consider a repository', default=20)
 parser.add_argument('targetDirs', help='the directories containing the git repos', nargs='+', default='.')
-
+parser.add_argument('--users', dest="outputUsers", action='store_true', default=False, help="Output list of users instead of gource log")
+args = parser.parse_args()
 
 aggregateLog = []
-args = parser.parse_args()
 for baseDir in args.targetDirs:
   baseDir = baseDir.rstrip('/') + '/'
   subDirs = glob(baseDir+'/*/')
@@ -48,6 +52,12 @@ for baseDir in args.targetDirs:
         log = getGourceLog(subDirectory)
         aggregateLog = aggregateLog + log
 
-aggregateLog.sort()
-for line in aggregateLog:
-  print(line)
+if args.outputUsers:
+  users = getGourceUsers(aggregateLog)
+  for user in users:
+    print(user)
+else:
+  aggregateLog.sort()
+  for line in aggregateLog:
+    print(line)
+
