@@ -4,7 +4,7 @@ import subprocess
 from glob import glob
 
 try:
-  from subprocess import DEVNULL # py3k
+  from subprocess import DEVNULL
 except ImportError:
   import os
   DEVNULL = open(os.devnull, 'wb')
@@ -14,9 +14,11 @@ def isGitDir(directory):
   gitStatus = subprocess.call(["git", "status"], cwd=directory, stdout=DEVNULL, stderr=subprocess.STDOUT)
   return gitStatus == 0
 
+
 def getCommitCount(directory):
   commitString = subprocess.check_output(["git", "rev-list", "--count", "HEAD"], cwd=directory, stderr=DEVNULL)
   return int(commitString)
+
 
 def getGourceLog(directory):
   result = []
@@ -25,16 +27,22 @@ def getGourceLog(directory):
     repoName = directory.split("/")[-2]
     for line in log.splitlines():
       timestamp, commiter, modification, filename = line.split("|")
-      filename = repoName+filename
+      filename = repoName + filename
       result.append("|".join([timestamp, commiter, modification, filename]))
   except subprocess.CalledProcessError:
     print("Got gource error in " + directory)
     pass
   return result
 
+
+def isValidDir(directory, minCommits):
+  return isGitDir(directory) and getCommitCount(directory) > minCommits
+
+
 def getGourceUsers(log):
   allUsers = map(lambda x: x.split("|")[1], log)
   return set(allUsers)
+
 
 parser = argparse.ArgumentParser(description='Create gource log from multiple rpos')
 parser.add_argument('-c', dest="minCommits", metavar='n', type=int, help='minimum ammount of git commits to consider a repository', default=20)
@@ -45,19 +53,20 @@ args = parser.parse_args()
 aggregateLog = []
 for baseDir in args.targetDirs:
   baseDir = baseDir.rstrip('/') + '/'
-  subDirs = glob(baseDir+'/*/')
-  for subDirectory in subDirs:
-    if isGitDir(subDirectory):
-      if getCommitCount(subDirectory) > args.minCommits:
-        log = getGourceLog(subDirectory)
-        aggregateLog = aggregateLog + log
+  if isGitDir(baseDir):
+    if isValidDir(baseDir, args.minCommits):
+      aggregateLog = aggregateLog + getGourceLog(baseDir)
+  else:
+    subDirs = glob(baseDir + '/*/')
+    for subDirectory in subDirs:
+      if isValidDir(subDirectory, args.minCommits):
+        aggregateLog = aggregateLog + getGourceLog(baseDir)
 
 if args.outputUsers:
   users = getGourceUsers(aggregateLog)
-  for user in users:
+  for user in sorted(users):
     print(user)
 else:
   aggregateLog.sort()
   for line in aggregateLog:
     print(line)
-
